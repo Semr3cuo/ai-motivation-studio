@@ -15,7 +15,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,7 +36,7 @@ jobs:
           import subprocess as sp
           from pathlib import Path
           from PIL import Image, ImageDraw, ImageFont
-          import random, math, wave, textwrap
+          import math, wave, textwrap, json, urllib.request, urllib.parse, html, re, array, sys
           out=Path('output/videos')
           phrases=[
             'Ninguém precisa aplaudir o seu esforço.',
@@ -51,6 +51,37 @@ jobs:
           def stamp(s):
               ms=round(s*1000)
               return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
+          # Only use Commons footage with explicit reusable licensing.
+          credits=[]
+          used=set()
+          def footage(query, i):
+              params={'action':'query','generator':'search','gsrsearch':query+' filetype:video','gsrnamespace':6,'gsrlimit':35,'prop':'imageinfo','iiprop':'url|size|mime|extmetadata','format':'json'}
+              req=urllib.request.Request('https://commons.wikimedia.org/w/api.php?'+urllib.parse.urlencode(params),headers={'User-Agent':'MenteInabalavelStudio/1.0 (https://github.com/Semr3cuo/ai-motivation-studio)'})
+              with urllib.request.urlopen(req,timeout=45) as f:
+                  pages=json.load(f).get('query',{}).get('pages',{})
+              for p in sorted(pages.values(),key=lambda p:p.get('index',999)):
+                  info=p.get('imageinfo',[{}])[0]
+                  meta=info.get('extmetadata',{})
+                  def val(k):
+                      return html.unescape(re.sub('<[^>]+>','',meta.get(k,{}).get('value','')))
+                  license=val('LicenseShortName')
+                  if license not in ('CC0','Public domain','CC BY 4.0','CC BY 3.0','CC BY 2.0') or val('Restrictions') or not info.get('mime','').startswith('video/') or not 500000<info.get('size',0)<70000000 or info.get('width',0)<720 or p['title'] in used:
+                      continue
+                  dest=out/f'footage{i}.video'
+                  try:
+                      req=urllib.request.Request(info['url'],headers={'User-Agent':'MenteInabalavelStudio/1.0 (https://github.com/Semr3cuo/ai-motivation-studio)'})
+                      with urllib.request.urlopen(req,timeout=90) as f, dest.open('wb') as target:
+                          import shutil
+                          shutil.copyfileobj(f,target)
+                      run(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','csv=p=0',str(dest)])
+                  except Exception:
+                      dest.unlink(missing_ok=True)
+                      continue
+                  used.add(p['title'])
+                  credits.append({'scene':i+1,'title':p['title'],'author':val('Artist'),'license':license,'license_url':val('LicenseUrl'),'source':info.get('descriptionurl'),'changes':'vertical crop, color grading, fades, captions'})
+                  return dest
+              raise RuntimeError('No eligible footage found: '+query)
+          queries=['runner running outdoors','athlete training exercise','hiking mountain trail','running athletics','mountain climbing hiking','mountain sunrise landscape']
           elapsed=0
           captions=[]
           clips=[]
@@ -63,39 +94,35 @@ jobs:
               length=frames/30
               captions.append(f'{i+1}\n{stamp(elapsed)} --> {stamp(elapsed+duration)}\n{phrase}\n')
               elapsed+=length
-              rng=random.Random(42+i)
-              W,H=1080,1920
-              im=Image.new('RGB',(W,H))
-              d=ImageDraw.Draw(im)
-              for y in range(H):
-                  t=y/H
-                  glow=math.exp(-((t-.42)/.22)**2)
-                  d.line((0,y,W,y),fill=(int(9+95*glow),int(12+58*glow),int(20+20*glow)))
-              sx=220+i*125
-              d.ellipse((sx-90,650,sx+90,830),fill=(226,167,76))
-              for layer in range(4):
-                  base=920+layer*160
-                  pts=[(0,H),(0,base)]
-                  for x in range(0,W+120,120):
-                      pts.append((x,base-rng.randint(20,260)))
-                  pts.extend([(W,H),(0,H)])
-                  d.polygon(pts,fill=(24-layer*4,27-layer*4,35-layer*5))
-              font='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-              d.text((540,210),'MENTE INABALÁVEL',font=ImageFont.truetype(font,43),anchor='mm',fill=(224,184,89))
-              d.line((350,255,730,255),fill=(224,184,89),width=3)
-              d.text((540,1700),f'0{i+1}  /  06',font=ImageFont.truetype(font,28),anchor='mm',fill=(224,184,89))
-              bg=out/f'scene{i}.png'
-              im.save(bg)
+              bg=footage(queries[i],i)
               sub=out/f'scene{i}.srt'
               sub.write_text(f'1\n00:00:00,000 --> {stamp(duration)}\n'+ '\n'.join(textwrap.wrap(phrase,25))+'\n',encoding='utf-8')
               clip=out/f'clip{i}.mp4'
-              vf=f"scale=2160:3840,zoompan=z='1.0+0.0006*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s=1080x1920:fps=30,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=16,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=105'"
-              run(['ffmpeg','-v','error','-y','-loop','1','-framerate','30','-i',str(bg),'-i',str(wav),'-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
+              vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.08:saturation=0.85,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=16,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=105'"
+              run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
               clips.append(clip)
           listing=out/'concat.txt'
           listing.write_text(''.join(f"file '{p.name}'\n" for p in clips))
           final=out/'mente-inabalavel.mp4'
-          run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(final)])
+          joined=out/'joined.mp4'
+          run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(joined)])
+          # Original synthesized instrumental bed, no third-party music.
+          music=out/'music.wav'
+          rate=24000
+          samples=array.array('h')
+          chords=[(110,130.81,164.81),(87.31,110,130.81),(65.41,82.41,98),(98,123.47,146.83)]
+          for n in range(int(elapsed*rate)):
+              t=n/rate
+              chord=chords[int(t/4)%4]
+              env=min(1,t/1.2,max(0,(elapsed-t)/1.2))
+              v=sum(math.sin(2*math.pi*f*t)+0.15*math.sin(4*math.pi*f*t) for f in chord)/3
+              samples.append(int(1500*env*v*(0.8+0.2*math.sin(2*math.pi*0.25*t))))
+          if sys.byteorder!='little': samples.byteswap()
+          with wave.open(str(music),'wb') as w:
+              w.setparams((1,2,rate,0,'NONE','not compressed'))
+              w.writeframes(samples.tobytes())
+          run(['ffmpeg','-v','error','-y','-i',str(joined),'-i',str(music),'-filter_complex','[0:a]volume=1[v];[1:a]volume=0.55[m];[v][m]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[a]','-map','0:v','-map','[a]','-c:v','copy','-c:a','aac','-movflags','+faststart',str(final)])
+          (out/'credits.json').write_text(json.dumps(credits,ensure_ascii=False,indent=2),encoding='utf-8')
           (out/'mente-inabalavel.srt').write_text('\n'.join(captions),encoding='utf-8')
           run(['ffprobe','-v','error','-show_streams','-show_format',str(final)])
           PY
@@ -106,5 +133,6 @@ jobs:
           path: |
             output/videos/mente-inabalavel.mp4
             output/videos/mente-inabalavel.srt
+            output/videos/credits.json
           if-no-files-found: error
           retention-days: 7
