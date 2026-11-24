@@ -4,7 +4,7 @@ import re
 
 from app.ai.script_generator import generate_script
 from app.config.settings import settings
-from app.video.renderer import render_video
+from app.video.renderer import render_complete_video
 
 
 def slugify(value: str) -> str:
@@ -14,32 +14,19 @@ def slugify(value: str) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Gera um vídeo motivacional vertical a partir de um tema."
-    )
-    parser.add_argument(
-        "--tema",
-        required=True,
-        help="Tema do vídeo, por exemplo: disciplina, foco ou nunca desistir.",
-    )
-    parser.add_argument(
-        "--duracao",
-        type=int,
-        default=8,
-        help="Duração do MVP em segundos. O padrão é 8.",
-    )
+    parser = argparse.ArgumentParser(description="Gera um vídeo motivacional vertical.")
+    parser.add_argument("--tema", required=True, help="Tema do vídeo.")
+    parser.add_argument("--duracao", type=int, default=8, help="Mantido por compatibilidade; a duração final acompanha a narração.")
     args = parser.parse_args()
 
     print(f"Gerando roteiro para: {args.tema}")
     script = generate_script(args.tema)
-
     print(f"Título: {script.title}")
-    print("Renderizando vídeo...")
+    print("Gerando voz, legendas e vídeo final...")
 
     output_dir = Path(settings.output_dir) / "videos"
     output_path = output_dir / f"{slugify(script.title)}.mp4"
-    render_video(script, output_path, duration=args.duracao)
-
+    render_complete_video(script, output_path)
     print(f"Vídeo criado: {output_path}")
 
 
