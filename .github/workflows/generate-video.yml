@@ -55,7 +55,12 @@ jobs:
           credits=[]
           used=set()
           def footage(query, i):
-              params={'action':'query','generator':'search','gsrsearch':query+' filetype:video','gsrnamespace':6,'gsrlimit':35,'prop':'imageinfo','iiprop':'url|size|mime|extmetadata','format':'json'}
+              for term in (query, 'running' if i<2 else 'mountain', 'hiking', 'landscape'):
+                  result=search_footage(term,i)
+                  if result is not None: return result
+              raise RuntimeError('No eligible footage found: '+query)
+          def search_footage(query, i):
+              params={'action':'query','generator':'search','gsrsearch':query+' filetype:video','gsrnamespace':6,'gsrlimit':50,'prop':'imageinfo','iiprop':'url|size|mime|extmetadata','format':'json'}
               req=urllib.request.Request('https://commons.wikimedia.org/w/api.php?'+urllib.parse.urlencode(params),headers={'User-Agent':'MenteInabalavelStudio/1.0 (https://github.com/Semr3cuo/ai-motivation-studio)'})
               with urllib.request.urlopen(req,timeout=45) as f:
                   pages=json.load(f).get('query',{}).get('pages',{})
@@ -65,7 +70,7 @@ jobs:
                   def val(k):
                       return html.unescape(re.sub('<[^>]+>','',meta.get(k,{}).get('value','')))
                   license=val('LicenseShortName')
-                  if license not in ('CC0','Public domain','CC BY 4.0','CC BY 3.0','CC BY 2.0') or val('Restrictions') or not info.get('mime','').startswith('video/') or not 500000<info.get('size',0)<70000000 or info.get('width',0)<720 or p['title'] in used:
+                  if license not in ('CC0','Public domain','CC BY 4.0','CC BY 3.0','CC BY 2.0') or val('Restrictions').strip().lower() not in ('','none') or not info.get('mime','').startswith('video/') or not 100000<info.get('size',0)<100000000 or max(info.get('width',0),info.get('height',0))<720 or p['title'] in used:
                       continue
                   dest=out/f'footage{i}.video'
                   try:
@@ -80,8 +85,8 @@ jobs:
                   used.add(p['title'])
                   credits.append({'scene':i+1,'title':p['title'],'author':val('Artist'),'license':license,'license_url':val('LicenseUrl'),'source':info.get('descriptionurl'),'changes':'vertical crop, color grading, fades, captions'})
                   return dest
-              raise RuntimeError('No eligible footage found: '+query)
-          queries=['runner running outdoors','athlete training exercise','hiking mountain trail','running athletics','mountain climbing hiking','mountain sunrise landscape']
+              return None
+          queries=['running','exercise','hiking','athletics','mountaineering','sunrise']
           elapsed=0
           captions=[]
           clips=[]
@@ -99,7 +104,7 @@ jobs:
               sub.write_text(f'1\n00:00:00,000 --> {stamp(duration)}\n'+ '\n'.join(textwrap.wrap(phrase,25))+'\n',encoding='utf-8')
               clip=out/f'clip{i}.mp4'
               vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.08:saturation=0.85,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=16,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=105'"
-              run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
+              run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-map','0:v:0','-map','1:a:0','-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
               clips.append(clip)
           listing=out/'concat.txt'
           listing.write_text(''.join(f"file '{p.name}'\n" for p in clips))
