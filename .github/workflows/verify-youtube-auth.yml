@@ -42,7 +42,16 @@ jobs:
                   with urlopen(req, timeout=20) as response:
                       return json.load(response)
               except HTTPError as error:
-                  raise SystemExit(f"{stage} failed (HTTP {error.code}).") from None
+                  code = ""
+                  if stage == "OAuth refresh":
+                      try:
+                          value = json.loads(error.read(8192)).get("error")
+                      except (ValueError, AttributeError, OSError):
+                          value = None
+                      if value in ("invalid_client", "invalid_grant", "unauthorized_client",
+                                   "invalid_request", "invalid_scope", "unsupported_grant_type"):
+                          code = f": {value}"
+                  raise SystemExit(f"{stage} failed (HTTP {error.code}{code}).") from None
               except (URLError, TimeoutError, ValueError):
                   raise SystemExit(f"{stage} failed without a usable response.") from None
 
