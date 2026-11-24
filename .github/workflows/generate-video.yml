@@ -55,7 +55,7 @@ jobs:
           credits=[]
           used=set()
           def footage(query, i):
-              for term in (query, 'running' if i<2 else 'mountain', 'hiking', 'landscape'):
+              for term in (query, 'running athlete', 'running', 'jogging', 'hiking'):
                   result=search_footage(term,i)
                   if result is not None: return result
               raise RuntimeError('No eligible footage found: '+query)
@@ -64,13 +64,21 @@ jobs:
               req=urllib.request.Request('https://commons.wikimedia.org/w/api.php?'+urllib.parse.urlencode(params),headers={'User-Agent':'MenteInabalavelStudio/1.0 (https://github.com/Semr3cuo/ai-motivation-studio)'})
               with urllib.request.urlopen(req,timeout=45) as f:
                   pages=json.load(f).get('query',{}).get('pages',{})
-              for p in sorted(pages.values(),key=lambda p:p.get('index',999)):
+              def rank(p):
+                  info=p.get('imageinfo',[{}])[0]
+                  w,h=info.get('width',0),info.get('height',0)
+                  title=p.get('title','').lower()
+                  return (sum(t in title for t in query.lower().split()), min(w*9/16,h), -p.get('index',999))
+              for p in sorted(pages.values(),key=rank,reverse=True):
                   info=p.get('imageinfo',[{}])[0]
                   meta=info.get('extmetadata',{})
                   def val(k):
                       return html.unescape(re.sub('<[^>]+>','',meta.get(k,{}).get('value','')))
                   license=val('LicenseShortName')
-                  if license not in ('CC0','Public domain','CC BY 4.0','CC BY 3.0','CC BY 2.0') or val('Restrictions').strip().lower() not in ('','none') or not info.get('mime','').startswith('video/') or not 100000<info.get('size',0)<100000000 or max(info.get('width',0),info.get('height',0))<720 or p['title'] in used:
+                  if license not in ('CC0','Public domain','CC BY 4.0','CC BY 3.0','CC BY 2.0') or val('Restrictions').strip().lower() not in ('','none') or not info.get('mime','').startswith('video/') or not 100000<info.get('size',0)<100000000 or min(info.get('width',0)*16/9,info.get('height',0))<720 or p['title'] in used:
+                      continue
+                  description=(p['title']+' '+val('ImageDescription')).lower()
+                  if not any(word in description for word in ('running','runner','jogging','athlete','athletics','marathon','hiking','hiker','training','sprint','trail')) or any(word in description for word in ('animation','animated','simulation','diagram','treadmill test','video game','cartoon')):
                       continue
                   dest=out/f'footage{i}.video'
                   try:
@@ -86,7 +94,7 @@ jobs:
                   credits.append({'scene':i+1,'title':p['title'],'author':val('Artist'),'license':license,'license_url':val('LicenseUrl'),'source':info.get('descriptionurl'),'changes':'vertical crop, color grading, fades, captions'})
                   return dest
               return None
-          queries=['running','exercise','hiking','athletics','mountaineering','sunrise']
+          queries=['runner training','running athlete','trail running','marathon runner','jogging outdoors','running finish']
           elapsed=0
           captions=[]
           clips=[]
@@ -103,8 +111,8 @@ jobs:
               sub=out/f'scene{i}.srt'
               sub.write_text(f'1\n00:00:00,000 --> {stamp(duration)}\n'+ '\n'.join(textwrap.wrap(phrase,25))+'\n',encoding='utf-8')
               clip=out/f'clip{i}.mp4'
-              vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.08:saturation=0.85,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=16,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=105'"
-              run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-map','0:v:0','-map','1:a:0','-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
+              vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.06:saturation=0.94,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=15,Bold=1,Outline=1.5,Shadow=1,Alignment=2,MarginV=105'"
+              run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-map','0:v:0','-map','1:a:0','-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','17','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
               clips.append(clip)
           listing=out/'concat.txt'
           listing.write_text(''.join(f"file '{p.name}'\n" for p in clips))
