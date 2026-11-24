@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 15
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-6.2' }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-6-luna' }}
       OUTPUT_DIR: output
       THEME_INPUT: ${{ inputs.tema }}
       DURATION_INPUT: ${{ inputs.duracao }}
