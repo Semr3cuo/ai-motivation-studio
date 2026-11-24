@@ -1,6 +1,9 @@
 name: Generate motivation video
 
 on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/generate-video.yml']
   workflow_dispatch:
     inputs:
       tema:
@@ -25,6 +28,8 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-6.2' }}
       OUTPUT_DIR: output
+      THEME_INPUT: ${{ inputs.tema }}
+      DURATION_INPUT: ${{ inputs.duracao }}
 
     steps:
       - name: Checkout
@@ -34,14 +39,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install FFmpeg
-        uses: FedericoCarbonara/setup-ffmpeg@v3
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Generate video
         run: |
-          THEME="${{ inputs.tema }}"
+          THEME="$THEME_INPUT"
           if [ -z "$THEME" ]; then THEME="Disciplina quando ninguém está olhando"; fi
-          python -m app.main --tema "$THEME" --duracao "${{ inputs.duracao || '8' }}"
+          python -m app.main --tema "$THEME" --duracao "${DURATION_INPUT:-8}"
       - name: Upload generated video
         uses: actions/upload-artifact@v4
         with:
