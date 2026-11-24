@@ -94,7 +94,7 @@ jobs:
                   credits.append({'scene':i+1,'title':p['title'],'author':val('Artist'),'license':license,'license_url':val('LicenseUrl'),'source':info.get('descriptionurl'),'changes':'vertical crop, color grading, fades, captions'})
                   return dest
               return None
-          queries=['runner training','running athlete','trail running','marathon runner','jogging outdoors','running finish']
+          queries=['runner training outdoors','running athlete road','trail running uphill','runner endurance training','jogging sunrise','trail runner mountain']
           elapsed=0
           captions=[]
           clips=[]
@@ -111,7 +111,7 @@ jobs:
               sub=out/f'scene{i}.srt'
               sub.write_text(f'1\n00:00:00,000 --> {stamp(duration)}\n'+ '\n'.join(textwrap.wrap(phrase,25))+'\n',encoding='utf-8')
               clip=out/f'clip{i}.mp4'
-              vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.06:saturation=0.94,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=15,Bold=1,Outline=1.5,Shadow=1,Alignment=2,MarginV=105'"
+              vf=f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,eq=contrast=1.08:saturation=0.88:brightness=-0.025,fade=t=in:d=0.12,fade=t=out:st={max(0,length-0.12)}:d=0.12,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=15,Bold=1,Outline=1.5,Shadow=1,Alignment=2,MarginV=105'"
               run(['ffmpeg','-v','error','-y','-stream_loop','-1','-i',str(bg),'-i',str(wav),'-map','0:v:0','-map','1:a:0','-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','17','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
               clips.append(clip)
           listing=out/'concat.txt'
