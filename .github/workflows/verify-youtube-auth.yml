@@ -1,0 +1,66 @@
+name: Verify YouTube authentication
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify OAuth and channel without uploading
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from urllib.error import HTTPError, URLError
+          from urllib.parse import urlencode
+          from urllib.request import Request, urlopen
+
+          expected = "UCxOFjW_MRwbakr9364KreTQ"
+          names = {
+              "client_id": "YOUTUBE_CLIENT_ID",
+              "client_secret": "YOUTUBE_CLIENT_SECRET",
+              "refresh_token": "YOUTUBE_REFRESH_TOKEN",
+          }
+          missing = [name for name in names.values() if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing Actions secrets: " + ", ".join(missing))
+
+          def request(stage, req):
+              try:
+                  with urlopen(req, timeout=20) as response:
+                      return json.load(response)
+              except HTTPError as error:
+                  raise SystemExit(f"{stage} failed (HTTP {error.code}).") from None
+              except (URLError, TimeoutError, ValueError):
+                  raise SystemExit(f"{stage} failed without a usable response.") from None
+
+          form = {field: os.environ[name] for field, name in names.items()}
+          form["grant_type"] = "refresh_token"
+          token = request("OAuth refresh", Request(
+              "https://oauth2.googleapis.com/token", data=urlencode(form).encode(),
+          ))
+          required = {"https://www.googleapis.com/auth/youtube.upload",
+                      "https://www.googleapis.com/auth/youtube.readonly"}
+          if not required.issubset(token.get("scope", "").split()):
+              raise SystemExit("OAuth token response did not confirm both required scopes.")
+          access_token = token.get("access_token")
+          if not access_token:
+              raise SystemExit("OAuth response did not contain an access token.")
+
+          channels = request("YouTube channels.list", Request(
+              "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",
+              headers={"Authorization": "Bearer " + access_token},
+          ))
+          if [item.get("id") for item in channels.get("items", [])] != [expected]:
+              raise SystemExit("OAuth is not bound to the expected YouTube channel.")
+          print("OAuth refresh, scopes and channel verified: " + expected)
+          PY
