@@ -67,3 +67,35 @@ O vídeo será criado em `output/videos/`.
 - publicação no TikTok;
 - agendamento;
 - métricas e otimização por IA.
+
+## Enviar vídeos privados ao YouTube
+
+O workflow **Upload private YouTube video** usa o artefato
+`motivation-video` de uma execução bem-sucedida de **Generate motivation
+video** na branch `main`. O destino é o canal existente Mente Inabalável
+(`@the_h4wk`). O workflow valida o ID do canal antes do envio e a
+visibilidade privada depois. Ele inclui na descrição os créditos do artefato
+e usa o vídeo já renderizado, sem chamar a API da OpenAI.
+
+1. Ative a YouTube Data API v3 no projeto do Google Cloud. Configure o cliente
+   OAuth e autorize o canal com acesso offline e os escopos
+   `https://www.googleapis.com/auth/youtube.upload` e
+   `https://www.googleapis.com/auth/youtube.readonly`.
+2. Registre `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` e
+   `YOUTUBE_REFRESH_TOKEN` como Actions secrets deste repositório. Um token
+   de atualização de um app externo em modo Testing normalmente expira em sete
+   dias.
+3. Em Actions, execute **Upload private YouTube video** informando o ID da
+   execução cujo MP4 foi aprovado. O artefato precisa estar disponível para
+   download. Confira o vídeo privado no Studio e repita com o mesmo ID para
+   validar o bloqueio de duplicatas.
+4. Depois do teste, defina a variável de Actions `YOUTUBE_AUTO_UPLOAD=true`
+   para enviar automaticamente os próximos artefatos elegíveis.
+
+O histórico está nas tags Git `youtube-upload/<sha256>/uploaded/<video-id>`.
+O hash identifica MP4s byte a byte. Cada tentativa grava primeiro a tag
+`youtube-upload/<sha256>/pending`. Se a execução parar antes de registrar o
+ID, o workflow bloqueia novas tentativas do mesmo arquivo. Confira o Studio
+e os metadados do vídeo (tag `ams-sha256:<sha256>`) antes de reconciliar:
+registre a tag de sucesso com o ID encontrado, ou remova a reserva somente
+depois de confirmar que o upload não foi criado.
