@@ -8,7 +8,7 @@ on:
         required: true
         default: "Disciplina quando ninguém está olhando"
       duracao:
-        description: "Duração do MVP em segundos"
+        description: "Duração mantida por compatibilidade"
         required: true
         default: "8"
   schedule:
@@ -21,35 +21,27 @@ jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-6.2-astra' }}
+      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-6.2' }}
       OUTPUT_DIR: output
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install FFmpeg
         uses: FedericoCarbonara/setup-ffmpeg@v3
-
       - name: Install Python dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
-
       - name: Generate video
         run: |
           THEME="${{ inputs.tema }}"
-          if [ -z "$THEME" ]; then
-            THEME="Disciplina quando ninguém está olhando"
-          fi
+          if [ -z "$THEME" ]; then THEME="Disciplina quando ninguém está olhando"; fi
           python -m app.main --tema "$THEME" --duracao "${{ inputs.duracao || '8' }}"
-
       - name: Upload generated video
         uses: actions/upload-artifact@v4
         with:
