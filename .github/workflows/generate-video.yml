@@ -5,52 +5,106 @@ on:
     branches: [main]
     paths: ['.github/workflows/generate-video.yml']
   workflow_dispatch:
-    inputs:
-      tema:
-        description: "Tema do vídeo"
-        required: true
-        default: "Disciplina quando ninguém está olhando"
-      duracao:
-        description: "Duração mantida por compatibilidade"
-        required: true
-        default: "8"
-  schedule:
-    - cron: "0 11 * * *"
 
 permissions:
   contents: read
+concurrency:
+  group: motivation-free-pilot
+  cancel-in-progress: false
 
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
-      OUTPUT_DIR: output
-      THEME_INPUT: ${{ inputs.tema }}
-      DURATION_INPUT: ${{ inputs.duracao }}
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - name: Install Python dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
-      - name: Generate video
+          python-version: '3.11'
+      - name: Install free local tools
         run: |
-          THEME="$THEME_INPUT"
-          if [ -z "$THEME" ]; then THEME="Disciplina quando ninguém está olhando"; fi
-          python -m app.main --tema "$THEME" --duracao "${DURATION_INPUT:-8}"
-      - name: Upload generated video
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
+          pip install piper-tts==1.2.0 pillow
+          mkdir -p voice output/videos
+          BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium
+          curl --fail --location --retry 2 "$BASE/pt_BR-faber-medium.onnx" -o voice/model.onnx
+          curl --fail --location --retry 2 "$BASE/pt_BR-faber-medium.onnx.json" -o voice/model.onnx.json
+      - name: Render free neural pilot
+        run: |
+          python - <<'PY'
+          import subprocess as sp
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+          import random, math, wave, textwrap
+          out=Path('output/videos')
+          phrases=[
+            'Ninguém precisa aplaudir o seu esforço.',
+            'A disciplina começa quando a vontade acaba.',
+            'Nos dias difíceis, dê apenas mais um passo.',
+            'Cada pequena vitória fortalece a sua mente.',
+            'Não espere o momento perfeito. Comece hoje.',
+            'Domine sua mente. Transforme sua vida.'
+          ]
+          def run(args, **kw):
+              sp.run(args, check=True, **kw)
+          def stamp(s):
+              ms=round(s*1000)
+              return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
+          elapsed=0
+          captions=[]
+          clips=[]
+          for i, phrase in enumerate(phrases):
+              wav=out/f'voice{i}.wav'
+              run(['piper','--model','voice/model.onnx','--output_file',str(wav),'--length_scale','1.08'],input=phrase+'\n',text=True)
+              with wave.open(str(wav)) as w:
+                  duration=w.getnframes()/w.getframerate()
+              frames=math.ceil((duration+0.18)*30)
+              length=frames/30
+              captions.append(f'{i+1}\n{stamp(elapsed)} --> {stamp(elapsed+duration)}\n{phrase}\n')
+              elapsed+=length
+              rng=random.Random(42+i)
+              W,H=1080,1920
+              im=Image.new('RGB',(W,H))
+              d=ImageDraw.Draw(im)
+              for y in range(H):
+                  t=y/H
+                  glow=math.exp(-((t-.42)/.22)**2)
+                  d.line((0,y,W,y),fill=(int(9+95*glow),int(12+58*glow),int(20+20*glow)))
+              sx=220+i*125
+              d.ellipse((sx-90,650,sx+90,830),fill=(226,167,76))
+              for layer in range(4):
+                  base=920+layer*160
+                  pts=[(0,H),(0,base)]
+                  for x in range(0,W+120,120):
+                      pts.append((x,base-rng.randint(20,260)))
+                  pts.extend([(W,H),(0,H)])
+                  d.polygon(pts,fill=(24-layer*4,27-layer*4,35-layer*5))
+              font='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+              d.text((540,210),'MENTE INABALÁVEL',font=ImageFont.truetype(font,43),anchor='mm',fill=(224,184,89))
+              d.line((350,255,730,255),fill=(224,184,89),width=3)
+              d.text((540,1700),f'0{i+1}  /  06',font=ImageFont.truetype(font,28),anchor='mm',fill=(224,184,89))
+              bg=out/f'scene{i}.png'
+              im.save(bg)
+              sub=out/f'scene{i}.srt'
+              sub.write_text(f'1\n00:00:00,000 --> {stamp(duration)}\n'+ '\n'.join(textwrap.wrap(phrase,25))+'\n',encoding='utf-8')
+              clip=out/f'clip{i}.mp4'
+              vf=f"scale=2160:3840,zoompan=z='1.0+0.0006*on':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=1:s=1080x1920:fps=30,subtitles={sub}:force_style='FontName=DejaVu Sans,FontSize=16,Bold=1,Outline=2,Shadow=1,Alignment=2,MarginV=105'"
+              run(['ffmpeg','-v','error','-y','-loop','1','-framerate','30','-i',str(bg),'-i',str(wav),'-vf',vf,'-af','apad','-t',str(length),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-ar','48000','-ac','1',str(clip)])
+              clips.append(clip)
+          listing=out/'concat.txt'
+          listing.write_text(''.join(f"file '{p.name}'\n" for p in clips))
+          final=out/'mente-inabalavel.mp4'
+          run(['ffmpeg','-v','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(final)])
+          (out/'mente-inabalavel.srt').write_text('\n'.join(captions),encoding='utf-8')
+          run(['ffprobe','-v','error','-show_streams','-show_format',str(final)])
+          PY
+      - name: Upload pilot
         uses: actions/upload-artifact@v4
         with:
           name: motivation-video
-          path: output/videos/*.mp4
+          path: |
+            output/videos/mente-inabalavel.mp4
+            output/videos/mente-inabalavel.srt
           if-no-files-found: error
           retention-days: 7
