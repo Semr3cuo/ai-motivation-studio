@@ -140,6 +140,7 @@ jobs:
           run(['ffprobe','-v','error','-show_streams','-show_format',str(final)])
           PY
       - name: Upload pilot
+        id: review_artifact
         uses: actions/upload-artifact@v4
         with:
           name: motivation-video
@@ -149,3 +150,19 @@ jobs:
             output/videos/credits.json
           if-no-files-found: error
           retention-days: 7
+      - name: Request review before YouTube upload
+        env:
+          ARTIFACT_URL: ${{ steps.review_artifact.outputs.artifact-url }}
+        run: |
+          video_sha256=$(sha256sum output/videos/mente-inabalavel.mp4 | cut -d ' ' -f 1)
+          {
+            echo '## Vídeo aguardando sua análise'
+            echo
+            echo "1. Baixe o [vídeo, as legendas e os créditos]($ARTIFACT_URL)."
+            echo '2. Assista ao MP4 e revise a narração, as legendas e os créditos.'
+            echo "3. Se aprovar, abra [Upload private YouTube video]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/upload-youtube.yml), selecione main e preencha os campos abaixo."
+            echo
+            echo "- run_id: $GITHUB_RUN_ID"
+            echo "- video_sha256: $video_sha256"
+            echo '- approved: marque somente após revisar e autorizar o envio privado.'
+          } >> "$GITHUB_STEP_SUMMARY"
