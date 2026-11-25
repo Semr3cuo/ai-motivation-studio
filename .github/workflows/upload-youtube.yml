@@ -1,16 +1,21 @@
 name: Upload private YouTube video
 
 on:
-  workflow_run:
-    workflows: [Generate motivation video]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       run_id:
         description: Run ID of the approved Generate motivation video artifact
         required: true
         type: string
+      video_sha256:
+        description: SHA-256 do MP4 exibido no resumo da geração
+        required: true
+        type: string
+      approved:
+        description: Revisei este vídeo e autorizo o envio privado ao canal
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -22,14 +27,7 @@ concurrency:
 
 jobs:
   upload:
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-      (vars.YOUTUBE_AUTO_UPLOAD == 'true' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.event != 'pull_request' &&
-      github.event.workflow_run.event != 'pull_request_target'))
+    if: github.ref == 'refs/heads/main' && inputs.approved == true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -39,7 +37,7 @@ jobs:
       - name: Verify trusted generator run
         env:
           GH_TOKEN: ${{ github.token }}
-          RUN_ID: ${{ inputs.run_id || github.event.workflow_run.id }}
+          RUN_ID: ${{ inputs.run_id }}
         run: |
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" |
@@ -52,8 +50,14 @@ jobs:
         with:
           name: motivation-video
           path: upload-input
-          run-id: ${{ inputs.run_id || github.event.workflow_run.id }}
+          run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
+      - name: Check the approved MP4
+        env:
+          APPROVED_SHA256: ${{ inputs.video_sha256 }}
+        run: |
+          [[ "$APPROVED_SHA256" =~ ^[a-fA-F0-9]{64}$ ]]
+          printf '%s  %s\n' "${APPROVED_SHA256,,}" upload-input/mente-inabalavel.mp4 | sha256sum --check --status
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
