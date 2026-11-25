@@ -1,0 +1,167 @@
+{
+  "miniatura": "thumbnail",
+  "midias": {
+    "thumbnail": {
+      "nome": "",
+      "titular": "",
+      "fonte": "",
+      "licenca": "",
+      "atribuicao": "",
+      "territorio": "",
+      "verificado_em": "",
+      "comprovante": "",
+      "alteracoes": "",
+      "arquivo": "",
+      "comercial": false,
+      "edicao": false,
+      "distribuicao": false
+    },
+    "trilha": {
+      "nome": "",
+      "titular": "",
+      "fonte": "",
+      "licenca": "",
+      "atribuicao": "",
+      "territorio": "",
+      "verificado_em": "",
+      "comprovante": "",
+      "alteracoes": "",
+      "arquivo": "",
+      "comercial": false,
+      "edicao": false,
+      "distribuicao": false
+    },
+    "tomada": {
+      "nome": "",
+      "titular": "",
+      "fonte": "",
+      "licenca": "",
+      "atribuicao": "",
+      "territorio": "",
+      "verificado_em": "",
+      "comprovante": "",
+      "alteracoes": "",
+      "arquivo": "",
+      "comercial": false,
+      "edicao": false,
+      "distribuicao": false
+    },
+    "voz": {
+      "nome": "",
+      "titular": "",
+      "fonte": "",
+      "licenca": "",
+      "atribuicao": "",
+      "territorio": "",
+      "verificado_em": "",
+      "comprovante": "",
+      "alteracoes": "",
+      "arquivo": "",
+      "comercial": false,
+      "edicao": false,
+      "distribuicao": false
+    }
+  },
+  "videos": {
+    "principal": {
+      "conteudo_sintetico": false,
+      "trilha": "trilha",
+      "seo": {
+        "titulo": "",
+        "alternativos": [
+          "",
+          "",
+          ""
+        ],
+        "descricao": "",
+        "hashtags": [],
+        "palavras_chave": [],
+        "comentario": ""
+      },
+      "cenas": [
+        {
+          "texto": "",
+          "direcao": "",
+          "video": "tomada",
+          "voz": "voz",
+          "inicio": 0
+        }
+      ]
+    },
+    "impacto": {
+      "conteudo_sintetico": false,
+      "trilha": "trilha",
+      "seo": {
+        "titulo": "",
+        "alternativos": [
+          "",
+          "",
+          ""
+        ],
+        "descricao": "",
+        "hashtags": [],
+        "palavras_chave": [],
+        "comentario": ""
+      },
+      "cenas": [
+        {
+          "texto": "",
+          "direcao": "",
+          "video": "tomada",
+          "voz": "voz",
+          "inicio": 0
+        }
+      ]
+    },
+    "reflexao": {
+      "conteudo_sintetico": false,
+      "trilha": "trilha",
+      "seo": {
+        "titulo": "",
+        "alternativos": [
+          "",
+          "",
+          ""
+        ],
+        "descricao": "",
+        "hashtags": [],
+        "palavras_chave": [],
+        "comentario": ""
+      },
+      "cenas": [
+        {
+          "texto": "",
+          "direcao": "",
+          "video": "tomada",
+          "voz": "voz",
+          "inicio": 0
+        }
+      ]
+    },
+    "superacao": {
+      "conteudo_sintetico": false,
+      "trilha": "trilha",
+      "seo": {
+        "titulo": "",
+        "alternativos": [
+          "",
+          "",
+          ""
+        ],
+        "descricao": "",
+        "hashtags": [],
+        "palavras_chave": [],
+        "comentario": ""
+      },
+      "cenas": [
+        {
+          "texto": "",
+          "direcao": "",
+          "video": "tomada",
+          "voz": "voz",
+          "inicio": 0
+        }
+      ]
+    }
+  }
+}

@@ -100,3 +100,7 @@ ID, o workflow bloqueia novas tentativas do mesmo arquivo. Confira o Studio
 e os metadados do vídeo (tag `ams-sha256:<sha256>`) antes de reconciliar:
 registre a tag de sucesso com o ID encontrado, ou remova a reserva somente
 depois de confirmar que o upload não foi criado.
+
+## Produção Mente Inabalável
+
+O [fluxo de produção semanal](production/README.md) monta o vídeo principal e três Shorts a partir de mídia revisada. O lote fica pronto para revisão e envio privado pelo YouTube Studio sem usar os segredos OAuth do piloto.
