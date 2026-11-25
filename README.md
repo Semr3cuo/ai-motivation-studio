@@ -85,12 +85,13 @@ e usa o vídeo já renderizado, sem chamar a API da OpenAI.
    `YOUTUBE_REFRESH_TOKEN` como Actions secrets deste repositório. Um token
    de atualização de um app externo em modo Testing normalmente expira em sete
    dias.
-3. Em Actions, execute **Upload private YouTube video** informando o ID da
-   execução cujo MP4 foi aprovado. O artefato precisa estar disponível para
-   download. Confira o vídeo privado no Studio e repita com o mesmo ID para
-   validar o bloqueio de duplicatas.
-4. Depois do teste, defina a variável de Actions `YOUTUBE_AUTO_UPLOAD=true`
-   para enviar automaticamente os próximos artefatos elegíveis.
+3. Em Actions, execute **Generate motivation video** na branch `main`.
+   Abra o resumo da execução e baixe `motivation-video` para revisar o MP4,
+   as legendas e os créditos. O resumo informa o ID e o SHA-256 do MP4.
+4. Se aprovar o vídeo, abra **Upload private YouTube video** na branch
+   `main`, informe `run_id` e `video_sha256`, e marque `approved`.
+   O envio só inicia com a aprovação e se o MP4 baixado corresponder ao hash.
+   A publicação no canal permanece privada. O artefato dura sete dias.
 
 O histórico está nas tags Git `youtube-upload/<sha256>/uploaded/<video-id>`.
 O hash identifica MP4s byte a byte. Cada tentativa grava primeiro a tag
