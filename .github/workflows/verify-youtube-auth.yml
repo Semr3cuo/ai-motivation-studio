@@ -62,8 +62,12 @@ jobs:
           ))
           required = {"https://www.googleapis.com/auth/youtube.upload",
                       "https://www.googleapis.com/auth/youtube.readonly"}
-          if not required.issubset(token.get("scope", "").split()):
-              raise SystemExit("OAuth token response did not confirm both required scopes.")
+          if "scope" not in token:
+              raise SystemExit("Google OAuth response did not include a scope field.")
+          missing_scopes = required.difference((token.get("scope") or "").split())
+          if missing_scopes:
+              short_names = sorted(scope.rsplit("/", 1)[1] for scope in missing_scopes)
+              raise SystemExit("Missing YouTube OAuth scopes: " + ", ".join(short_names))
           access_token = token.get("access_token")
           if not access_token:
               raise SystemExit("OAuth response did not contain an access token.")
